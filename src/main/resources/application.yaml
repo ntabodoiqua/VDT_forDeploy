@@ -4,16 +4,18 @@ server:
     context-path: /lms
 
 spring:
-    datasource:
-    # Bật `useSSL=true` để tuân thủ yêu cầu sslmode=REQUIRED
+  # Ba khối datasource, jpa, và servlet bây giờ đã được căn lề thẳng hàng.
+  datasource:
     url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?useSSL=true
     username: ${DB_USER}
     password: ${DB_PASSWORD}
+  
   jpa:
     hibernate:
       ddl-auto: update
     database-platform: org.hibernate.dialect.MySQL8Dialect
     show-sql: true
+    
   servlet:
     multipart:
       max-file-size: 250MB
@@ -21,8 +23,8 @@ spring:
 
 jwt:
   signerKey: "${JWT_SIGNER_KEY:U+NXeAi5ytRMjd8P5J7H6Upqm3Hvt7dyliIW5rosLvAGb3wiS6HBLj1UmbQgD485}"
-  valid-duration: 3600 #in second
-  refreshable-duration: 36000 #in second
+  valid-duration: 3600
+  refreshable-duration: 36000
 
 recaptcha:
   secret: ${RECAPTCHA_SECRET:6LcNlVArAAAAAABVgugTwNHe5zM34fIJmYC_lm8w}
@@ -31,7 +33,7 @@ digitalocean:
   spaces:
     access-key: ${DO_SPACES_ACCESS_KEY:DO00XXLFWXMLW74Z2XTP}
     secret-key: ${DO_SPACES_SECRET_KEY:db+m2lDcfWzZHBVD9GEDQcej97aAGOgo79fopCkFw3g}
-    endpoint-url: https://sgp1.digitaloceanspaces.com # Endpoint của region bạn dùng
-    region: sgp1                             # Tên region
-    bucket-name: innolearn-files             # Tên bucket (Space) của bạn
-    base-url: https://innolearn-files.sgp1.digitaloceanspaces.com # URL công khai của Space
+    endpoint-url: https://sgp1.digitaloceanspaces.com
+    region: sgp1
+    bucket-name: innolearn-files
+    base-url: https://innolearn-files.sgp1.digitaloceanspaces.com
