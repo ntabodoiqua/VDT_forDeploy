@@ -4,18 +4,20 @@ server:
     context-path: /lms
 
 spring:
-  datasource:
-    url: "jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:identity}"
-    username: ${DB_USER:root}
-    password: ${DB_PASSWORD:root}
+    datasource:
+    # Bật `useSSL=true` để tuân thủ yêu cầu sslmode=REQUIRED
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?useSSL=true
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    show-sql: true
   servlet:
     multipart:
       max-file-size: 250MB
       max-request-size: 250MB
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: false
 
 jwt:
   signerKey: "${JWT_SIGNER_KEY:U+NXeAi5ytRMjd8P5J7H6Upqm3Hvt7dyliIW5rosLvAGb3wiS6HBLj1UmbQgD485}"
