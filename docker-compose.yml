@@ -1,62 +1,38 @@
 version: '3.8'
 
 services:
-  db:
-    image: mysql:8.0
-    container_name: mysql_db
+  # Service cho Backend Spring Boot (tôi đổi tên từ "app" thành "backend" cho nhất quán)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vdt-backend
+    restart: always
+    # Môi trường sẽ được lấy từ file .env mà chúng ta đã cấu hình
+    env_file:
+      - .env
+    # Service backend không còn phụ thuộc vào service db nữa
+    networks:
+      - vdt-network
+
+  # Service cho Nginx Reverse Proxy
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: vdt-nginx
+    restart: always
     ports:
-      # Bạn có thể truy cập DB từ bên ngoài Droplet qua cổng 3306 nếu cần
-      # Nếu không, hãy xóa/comment dòng này để tăng bảo mật
-      - "3306:3306"
-    environment:
-      # Đặt mật khẩu cho tài khoản root của MySQL
-      # BẠN NÊN THAY ĐỔI "your_strong_password" BẰNG MỘT MẬT KHẨU MẠNH
-      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:your_strong_password}
-      - MYSQL_DATABASE=${DB_NAME:identity}
+      - "80:80"
+      - "443:443"
     volumes:
-      # Giữ lại dữ liệu của database ngay cả khi container bị xóa và tạo lại
-      - mysql_data:/var/lib/mysql
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
-      timeout: 20s
-      retries: 10
-
-  app:
-    # Build image từ Dockerfile trong thư mục hiện tại
-    build: .
-    container_name: spring_boot_app
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./frontend/build:/var/www/html
     depends_on:
-      db:
-        condition: service_healthy
-    ports:
-      - "8080:8080"
-    environment:
-      # --- Cấu hình kết nối Database ---
-      # Tên "db" chính là tên service của MySQL ở trên
-      - DB_HOST=db
-      - DB_PORT=3306
-      - DB_NAME=${DB_NAME:identity}
-      # Sử dụng cùng mật khẩu đã khai báo cho service 'db'
-      - DB_PASSWORD=${DB_PASSWORD:your_strong_password}
-      - DB_USER=root # Hoặc một user khác nếu bạn tạo riêng
-
-      # --- Cấu hình các secrets khác ---
-      # BẠN CẦN THAY THẾ CÁC GIÁ TRỊ NÀY BẰNG GIÁ TRỊ THỰC CỦA BẠN
-      - JWT_SIGNER_KEY=${JWT_SIGNER_KEY:your_super_secret_jwt_key_here}
-      - RECAPTCHA_SECRET=${RECAPTCHA_SECRET:your_recaptcha_secret_here}
-      - DO_SPACES_ACCESS_KEY=${DO_SPACES_ACCESS_KEY:your_digital_ocean_spaces_access_key}
-      - DO_SPACES_SECRET_KEY=${DO_SPACES_SECRET_KEY:your_digital_ocean_spaces_secret_key}
+      - backend
     networks:
-      - app-network
+      - vdt-network
 
-# Định nghĩa network để các container có thể giao tiếp với nhau
 networks:
-  app-network:
+  vdt-network:
     driver: bridge
 
-# Định nghĩa volume để lưu trữ dữ liệu database
-volumes:
-  mysql_data:
-    driver: local 
+# Không cần khai báo volumes cho database ở đây nữa
