@@ -62,7 +62,9 @@ public class FileStorageService {
         try {
             String originalFileName = file.getOriginalFilename();
             String sanitizedFileName = originalFileName.replaceAll("[^a-zA-Z0-9._-]", "_");
-            String fileName = UUID.randomUUID() + "_" + sanitizedFileName;
+
+            String folder = isPublic ? "public/" : "private/";
+            String fileName = folder + UUID.randomUUID() + "_" + sanitizedFileName;
 
             ObjectMetadata metadata = new ObjectMetadata();
             metadata.setContentLength(file.getSize());
@@ -151,10 +153,21 @@ public class FileStorageService {
             return "File is already public: " + fileName;
         }
 
-        s3Client.setObjectAcl(spacesProperties.getBucketName(), fileName, CannedAccessControlList.PublicRead);
+        // Move file from private to public folder
+        String newFileName = fileName.replaceFirst("private/", "public/");
+        s3Client.copyObject(
+                spacesProperties.getBucketName(),
+                fileName,
+                spacesProperties.getBucketName(),
+                newFileName
+        );
+        s3Client.deleteObject(spacesProperties.getBucketName(), fileName);
+
+        s3Client.setObjectAcl(spacesProperties.getBucketName(), newFileName, CannedAccessControlList.PublicRead);
         uploadedFile.setPublic(true);
+        uploadedFile.setFileName(newFileName);
         uploadedFileRepository.save(uploadedFile);
-        return "File is now public: " + fileName;
+        return "File is now public: " + newFileName;
     }
 
     // Service để làm cho file trở nên riêng tư
@@ -177,10 +190,21 @@ public class FileStorageService {
             return "File is already private: " + fileName;
         }
 
-        s3Client.setObjectAcl(spacesProperties.getBucketName(), fileName, CannedAccessControlList.Private);
+        // Move file from public to private folder
+        String newFileName = fileName.replaceFirst("public/", "private/");
+        s3Client.copyObject(
+                spacesProperties.getBucketName(),
+                fileName,
+                spacesProperties.getBucketName(),
+                newFileName
+        );
+        s3Client.deleteObject(spacesProperties.getBucketName(), fileName);
+
+        s3Client.setObjectAcl(spacesProperties.getBucketName(), newFileName, CannedAccessControlList.Private);
         uploadedFile.setPublic(false);
+        uploadedFile.setFileName(newFileName);
         uploadedFileRepository.save(uploadedFile);
-        return "File is now private: " + fileName;
+        return "File is now private: " + newFileName;
     }
 
     // Service để lấy tất cả ảnh công khai của người dùng

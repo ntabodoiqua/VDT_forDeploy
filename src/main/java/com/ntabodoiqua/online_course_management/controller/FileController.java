@@ -48,8 +48,8 @@ public class FileController {
                 .build();
     }
 
-    @GetMapping("/download/{fileName}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable String fileName) {
+    @GetMapping("/download/{fileName:.+}")
+    public ResponseEntity<Resource> downloadFile(@PathVariable("fileName") String fileName) {
         UploadedFile file = uploadedFileRepository.findByFileName(fileName)
                 .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
 
@@ -61,9 +61,9 @@ public class FileController {
     }
 
     // Controller chuyển file từ private sang public
-    @PutMapping("/make-public/{fileName}")
+    @PutMapping("/make-public/{fileName:.+}")
     @PreAuthorize("hasAnyRole('STUDENT', 'INSTRUCTOR', 'ADMIN')")
-    public ApiResponse<String> makeFilePublic(@PathVariable String fileName) {
+    public ApiResponse<String> makeFilePublic(@PathVariable("fileName") String fileName) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         String result = fileStorageService.makeFilePublic(fileName, username);
 
@@ -85,9 +85,9 @@ public class FileController {
                 .build();
     }
 
-    @DeleteMapping("/{fileName}")
+    @DeleteMapping("/{fileName:.+}")
     @PreAuthorize("hasAnyRole('STUDENT', 'INSTRUCTOR', 'ADMIN')")
-    public ApiResponse<Void> deleteFile(@PathVariable String fileName) {
+    public ApiResponse<Void> deleteFile(@PathVariable("fileName") String fileName) {
         fileStorageService.deleteFile(fileName);
         return ApiResponse.<Void>builder()
                 .message("File deleted successfully")
@@ -107,9 +107,9 @@ public class FileController {
                 .build();
     }
 
-    @GetMapping("/check-usage/{fileName}")
+    @GetMapping("/check-usage/{fileName:.+}")
     @PreAuthorize("hasAnyRole('STUDENT', 'INSTRUCTOR', 'ADMIN')")
-    public ApiResponse<FileUsageResponse> checkFileUsage(@PathVariable String fileName) {
+    public ApiResponse<FileUsageResponse> checkFileUsage(@PathVariable("fileName") String fileName) {
         FileUsageResponse usage = fileStorageService.checkFileUsage(fileName);
         return ApiResponse.<FileUsageResponse>builder()
                 .message("File usage checked successfully")
