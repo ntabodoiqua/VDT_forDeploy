@@ -58,7 +58,7 @@ public class FileStorageService {
     AmazonS3 s3Client;
     DigitalOceanSpacesProperties spacesProperties;
 
-    public String storeFile(MultipartFile file, boolean isPublic) {
+    public UploadedFile storeFile(MultipartFile file, boolean isPublic) {
         try {
             String originalFileName = file.getOriginalFilename();
             String sanitizedFileName = originalFileName.replaceAll("[^a-zA-Z0-9._-]", "_");
@@ -85,7 +85,7 @@ public class FileStorageService {
                             .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED)))
                     .build();
             uploadedFileRepository.save(uploadedFile);
-            return fileName;
+            return uploadedFile;
         } catch (IOException e) {
             log.error("File cannot be stored in S3", e);
             throw new AppException(ErrorCode.FILE_CANNOT_STORED);
@@ -93,9 +93,13 @@ public class FileStorageService {
     }
 
     public Resource loadFile(String fileName, boolean isPublic) {
+        log.info("Attempting to load file with fileName: '{}'", fileName);
         try {
             UploadedFile uploadedFile = uploadedFileRepository.findByFileName(fileName)
-                .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
+                .orElseThrow(() -> {
+                    log.error("File not found in database with fileName: '{}'", fileName);
+                    return new AppException(ErrorCode.FILE_NOT_FOUND);
+                });
 
             if (!uploadedFile.isPublic()) {
                 // For private files, generate a pre-signed URL
@@ -293,8 +297,12 @@ public class FileStorageService {
 
     @PreAuthorize("hasAnyRole('STUDENT', 'INSTRUCTOR', 'ADMIN')")
     public FileUsageResponse checkFileUsage(String fileName) {
+        log.info("Checking file usage for fileName: '{}'", fileName);
         UploadedFile uploadedFile = uploadedFileRepository.findByFileName(fileName)
-                .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
+                .orElseThrow(() -> {
+                    log.warn("File usage check failed: File not found in database with fileName: '{}'", fileName);
+                    return new AppException(ErrorCode.FILE_NOT_FOUND);
+                });
 
         String fileUrl = spacesProperties.getBaseUrl() + "/" + uploadedFile.getFileName();
 

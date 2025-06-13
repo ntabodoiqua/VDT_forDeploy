@@ -41,10 +41,10 @@ public class FileController {
     @PostMapping("/upload")
     public ApiResponse<String> upload(@RequestParam("file") MultipartFile file,
                                       @RequestParam boolean isPublic) {
-        String fileName = fileStorageService.storeFile(file, isPublic);
-        log.info("File upload process initiated for: {}", fileName);
+        UploadedFile uploadedFile = fileStorageService.storeFile(file, isPublic);
+        log.info("File upload process initiated for: {}", uploadedFile.getFileName());
         return ApiResponse.<String>builder()
-                .result("File uploaded successfully: " + fileName)
+                .result("File uploaded successfully: " + uploadedFile.getFileName())
                 .build();
     }
 
