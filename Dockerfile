@@ -8,6 +8,9 @@ WORKDIR /app
 COPY .mvn/ .mvn
 COPY mvnw pom.xml ./
 
+# <<< THÊM DÒNG NÀY ĐỂ CẤP QUYỀN THỰC THI >>>
+RUN chmod +x ./mvnw
+
 # Download project dependencies
 RUN ./mvnw dependency:go-offline
 
@@ -34,4 +37,4 @@ COPY --from=builder /app/${JAR_FILE} app.jar
 EXPOSE 8080
 
 # Command to run the application
-ENTRYPOINT ["java", "-jar", "app.jar"] 
+ENTRYPOINT ["java", "-jar", "app.jar"]
