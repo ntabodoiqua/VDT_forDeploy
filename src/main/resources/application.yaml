@@ -36,4 +36,4 @@ digitalocean:
     endpoint-url: https://sgp1.digitaloceanspaces.com
     region: sgp1
     bucket-name: innolearn-files
-    base-url: https://innolearn-files.sgp1.digitaloceanspaces.com
+    base-url: https://innolearn-files.sgp1.cdn.digitaloceanspaces.com
