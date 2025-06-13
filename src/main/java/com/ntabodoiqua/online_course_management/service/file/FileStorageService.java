@@ -97,10 +97,7 @@ public class FileStorageService {
             UploadedFile uploadedFile = uploadedFileRepository.findByFileName(fileName)
                 .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
 
-            URL url;
-            if (uploadedFile.isPublic()) {
-                url = new URL(spacesProperties.getBaseUrl() + "/" + fileName);
-            } else {
+            if (!uploadedFile.isPublic()) {
                 // For private files, generate a pre-signed URL
                 java.util.Date expiration = new java.util.Date();
                 long expTimeMillis = expiration.getTime();
@@ -111,10 +108,14 @@ public class FileStorageService {
                         new GeneratePresignedUrlRequest(spacesProperties.getBucketName(), fileName)
                                 .withMethod(HttpMethod.GET)
                                 .withExpiration(expiration);
-                url = s3Client.generatePresignedUrl(generatePresignedUrlRequest);
+                URL url = s3Client.generatePresignedUrl(generatePresignedUrlRequest);
+                return new org.springframework.core.io.UrlResource(url);
             }
 
+            // For public files, construct the URL directly
+            URL url = new URL(spacesProperties.getBaseUrl() + "/" + fileName);
             Resource resource = new org.springframework.core.io.UrlResource(url);
+
             if (resource.exists() || resource.isReadable()) {
                 return resource;
             } else {
@@ -292,81 +293,36 @@ public class FileStorageService {
 
     @PreAuthorize("hasAnyRole('STUDENT', 'INSTRUCTOR', 'ADMIN')")
     public FileUsageResponse checkFileUsage(String fileName) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-
         UploadedFile uploadedFile = uploadedFileRepository.findByFileName(fileName)
                 .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
 
-        // Allow admin to check any file usage, others can only check their own files
-        boolean isAdmin = user.getRoles().stream()
-                .anyMatch(role -> role.getName().equals("ADMIN"));
-        
-        if (!isAdmin && !uploadedFile.getUploadedBy().equals(user)) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
-        }
+        String fileUrl = spacesProperties.getBaseUrl() + "/" + uploadedFile.getFileName();
 
         List<FileUsageResponse.FileUsageDetail> usageDetails = new ArrayList<>();
 
-        // Check course documents
-        List<CourseDocument> courseDocuments = courseDocumentRepository.findByFileName(fileName);
-        for (CourseDocument doc : courseDocuments) {
-            usageDetails.add(FileUsageResponse.FileUsageDetail.builder()
-                    .type("course")
-                    .id(doc.getCourse().getId())
-                    .title(doc.getCourse().getTitle())
-                    .description("Tài liệu: " + doc.getTitle())
-                    .build());
-        }
-
-        // Check lesson documents
-        List<LessonDocument> lessonDocuments = lessonDocumentRepository.findByFileName(fileName);
-        for (LessonDocument doc : lessonDocuments) {
-            usageDetails.add(FileUsageResponse.FileUsageDetail.builder()
-                    .type("lesson")
-                    .id(doc.getLesson().getId())
-                    .title(doc.getLesson().getTitle())
-                    .description("Tài liệu: " + doc.getTitle())
-                    .build());
-        }
-
         // Check user avatars
-        String fileUrl = spacesProperties.getBaseUrl() + "/" + fileName;
         List<User> usersWithAvatar = userRepository.findByAvatarUrl(fileUrl);
-        for (User userWithAvatar : usersWithAvatar) {
-            // Avoid duplicate entries
-            boolean alreadyAdded = usageDetails.stream()
-                .anyMatch(detail -> "user_avatar".equals(detail.getType()) &&
-                         userWithAvatar.getId().equals(detail.getId()));
-
-            if (!alreadyAdded) {
-                usageDetails.add(FileUsageResponse.FileUsageDetail.builder()
-                        .type("user_avatar")
-                        .id(userWithAvatar.getId())
-                        .title(userWithAvatar.getUsername())
-                        .description("Avatar của người dùng: " + userWithAvatar.getFirstName() + " " + userWithAvatar.getLastName())
-                        .build());
-            }
-        }
+        usersWithAvatar.stream()
+                .map(user -> new FileUsageResponse.FileUsageDetail("user_avatar", user.getId().toString(), user.getUsername(), "User Avatar for " + user.getUsername()))
+                .forEach(usageDetails::add);
 
         // Check course thumbnails
         List<Course> coursesWithThumbnail = courseRepository.findByThumbnailUrl(fileUrl);
-        for (Course course : coursesWithThumbnail) {
-            // Avoid duplicate entries
-            boolean alreadyAdded = usageDetails.stream()
-                .anyMatch(detail -> "course_thumbnail".equals(detail.getType()) &&
-                         course.getId().equals(detail.getId()));
+        coursesWithThumbnail.stream()
+                .map(course -> new FileUsageResponse.FileUsageDetail("course_thumbnail", course.getId().toString(), course.getTitle(), "Thumbnail for course " + course.getTitle()))
+                .forEach(usageDetails::add);
 
-            if (!alreadyAdded) {
-                usageDetails.add(FileUsageResponse.FileUsageDetail.builder()
-                        .type("course_thumbnail")
-                        .id(course.getId())
-                        .title(course.getTitle())
-                        .description("Thumbnail của khóa học")
-                        .build());
-            }
-        }
+        // Check course documents
+        List<CourseDocument> courseDocuments = courseDocumentRepository.findByFileName(fileName);
+        courseDocuments.stream()
+                .map(doc -> new FileUsageResponse.FileUsageDetail("course_document", doc.getCourse().getId().toString(), doc.getTitle(), "Document in course " + doc.getCourse().getTitle()))
+                .forEach(usageDetails::add);
+
+        // Check lesson documents
+        List<LessonDocument> lessonDocuments = lessonDocumentRepository.findByFileName(fileName);
+        lessonDocuments.stream()
+                .map(doc -> new FileUsageResponse.FileUsageDetail("lesson_document", doc.getLesson().getId().toString(), doc.getTitle(), "Document in lesson " + doc.getLesson().getTitle()))
+                .forEach(usageDetails::add);
 
         return FileUsageResponse.builder()
                 .fileName(fileName)
