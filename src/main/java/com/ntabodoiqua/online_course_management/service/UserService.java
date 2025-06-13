@@ -142,7 +142,7 @@ public class UserService {
             throw new AppException(ErrorCode.INVALID_IMAGE_TYPE);
         }
 
-        String fileName = fileStorageService.storeFile(file, true);
+        String fileName = fileStorageService.storeFile(file, true).getFileName();
         String avatarUrl = spacesProperties.getBaseUrl() + "/" + fileName;
 
         user.setAvatarUrl(avatarUrl);

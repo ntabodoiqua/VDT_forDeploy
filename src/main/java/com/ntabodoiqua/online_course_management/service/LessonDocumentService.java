@@ -71,7 +71,7 @@ public class LessonDocumentService {
         }
         
         // Store file
-        String fileName = fileStorageService.storeFile(file, false); // Private file for lesson documents
+        String fileName = fileStorageService.storeFile(file, false).getFileName(); // Private file for lesson documents
         
         // Create document entity
         LessonDocument document = LessonDocument.builder()

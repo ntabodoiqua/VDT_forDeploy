@@ -69,7 +69,7 @@ public class CourseDocumentService {
         }
         
         // Store file
-        String fileName = fileStorageService.storeFile(file, false); // Private file for course documents
+        String fileName = fileStorageService.storeFile(file, false).getFileName(); // Private file for course documents
         
         // Create document entity
         CourseDocument document = CourseDocument.builder()

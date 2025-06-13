@@ -94,7 +94,7 @@ public class CourseService {
         // Xử lý thumbnail (nếu có)
         String thumbnailUrl;
         if (thumbnail != null && !thumbnail.isEmpty()) {
-            String fileName = fileStorageService.storeFile(thumbnail, true);
+            String fileName = fileStorageService.storeFile(thumbnail, true).getFileName();
             thumbnailUrl = spacesProperties.getBaseUrl() + "/" + fileName;
         } else {
             thumbnailUrl = DefaultUrl.COURSE_THUMBNAIL.getURL();
@@ -157,7 +157,7 @@ public class CourseService {
 
         // Thumbnail
         if (thumbnail != null && !thumbnail.isEmpty()) {
-            String fileName = fileStorageService.storeFile(thumbnail, true);
+            String fileName = fileStorageService.storeFile(thumbnail, true).getFileName();
             course.setThumbnailUrl(spacesProperties.getBaseUrl() + "/" + fileName);
         }
 
