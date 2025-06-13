@@ -53,14 +53,6 @@ public class FileController {
         UploadedFile file = uploadedFileRepository.findByFileName(fileName)
                 .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
 
-        if (!file.isPublic()) {
-            // kiểm tra quyền sở hữu hoặc tham gia khóa học
-            String username = SecurityContextHolder.getContext().getAuthentication().getName();
-            boolean hasAccess = file.getUploadedBy().getUsername().equals(username);
-            if (username.equals("admin")) hasAccess = true;
-            if (!hasAccess) throw new AppException(ErrorCode.ACCESS_DENIED);
-        }
-
         Resource resource = fileStorageService.loadFile(fileName, file.isPublic());
 
         return ResponseEntity.ok()

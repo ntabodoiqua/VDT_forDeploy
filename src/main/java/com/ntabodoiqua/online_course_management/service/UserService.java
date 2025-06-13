@@ -15,6 +15,7 @@ import com.ntabodoiqua.online_course_management.repository.UploadedFileRepositor
 import com.ntabodoiqua.online_course_management.repository.UserRepository;
 import com.ntabodoiqua.online_course_management.repository.EnrollmentRepository;
 import com.ntabodoiqua.online_course_management.service.file.FileStorageService;
+import com.ntabodoiqua.online_course_management.configuration.properties.DigitalOceanSpacesProperties;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -42,6 +43,7 @@ public class UserService {
     UserMapper userMapper;
     PasswordEncoder passwordEncoder;
     FileStorageService fileStorageService;
+    DigitalOceanSpacesProperties spacesProperties;
 
     // Service tạo người dùng mới
 
@@ -141,7 +143,7 @@ public class UserService {
         }
 
         String fileName = fileStorageService.storeFile(file, true);
-        String avatarUrl = "/uploads/public/" + fileName;
+        String avatarUrl = spacesProperties.getBaseUrl() + "/" + fileName;
 
         user.setAvatarUrl(avatarUrl);
         userRepository.save(user);
@@ -164,7 +166,7 @@ public class UserService {
             throw new AppException(ErrorCode.INVALID_IMAGE_TYPE);
         }
 
-        String avatarUrl = "/uploads/public/" + uploadedFile.getFileName();
+        String avatarUrl = spacesProperties.getBaseUrl() + "/" + uploadedFile.getFileName();
         user.setAvatarUrl(avatarUrl);
         userRepository.save(user);
 

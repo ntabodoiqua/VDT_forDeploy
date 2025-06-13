@@ -15,6 +15,7 @@ import com.ntabodoiqua.online_course_management.mapper.UserMapper;
 import com.ntabodoiqua.online_course_management.repository.*;
 import com.ntabodoiqua.online_course_management.service.file.FileStorageService;
 import com.ntabodoiqua.online_course_management.specification.CourseSpecification;
+import com.ntabodoiqua.online_course_management.configuration.properties.DigitalOceanSpacesProperties;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -69,6 +70,7 @@ public class CourseService {
     CourseReviewRepository courseReviewRepository;
     CategoryMapper categoryMapper;
     EnrollmentMapper enrollmentMapper;
+    DigitalOceanSpacesProperties spacesProperties;
 
     // Forward declaration to avoid circular dependency
     @Lazy
@@ -93,7 +95,7 @@ public class CourseService {
         String thumbnailUrl;
         if (thumbnail != null && !thumbnail.isEmpty()) {
             String fileName = fileStorageService.storeFile(thumbnail, true);
-            thumbnailUrl = "/uploads/public/" + fileName;
+            thumbnailUrl = spacesProperties.getBaseUrl() + "/" + fileName;
         } else {
             thumbnailUrl = DefaultUrl.COURSE_THUMBNAIL.getURL();
         }
@@ -156,7 +158,7 @@ public class CourseService {
         // Thumbnail
         if (thumbnail != null && !thumbnail.isEmpty()) {
             String fileName = fileStorageService.storeFile(thumbnail, true);
-            course.setThumbnailUrl("/uploads/public/" + fileName);
+            course.setThumbnailUrl(spacesProperties.getBaseUrl() + "/" + fileName);
         }
 
         // Description

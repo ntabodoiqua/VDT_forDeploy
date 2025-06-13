@@ -10,6 +10,7 @@ import com.ntabodoiqua.online_course_management.exception.ErrorCode;
 import com.ntabodoiqua.online_course_management.mapper.DocumentMapper;
 import com.ntabodoiqua.online_course_management.repository.LessonDocumentRepository;
 import com.ntabodoiqua.online_course_management.repository.LessonRepository;
+import com.ntabodoiqua.online_course_management.repository.UploadedFileRepository;
 import com.ntabodoiqua.online_course_management.repository.UserRepository;
 import com.ntabodoiqua.online_course_management.repository.EnrollmentRepository;
 import com.ntabodoiqua.online_course_management.repository.CourseLessonRepository;
@@ -40,6 +41,7 @@ public class LessonDocumentService {
     UserRepository userRepository;
     EnrollmentRepository enrollmentRepository;
     CourseLessonRepository courseLessonRepository;
+    UploadedFileRepository uploadedFileRepository;
     DocumentMapper documentMapper;
     FileStorageService fileStorageService;
 
@@ -149,7 +151,9 @@ public class LessonDocumentService {
         
         // Delete physical file only (not the UploadedFile record to avoid circular dependency)
         try {
-            fileStorageService.deletePhysicalFile(document.getFileName(), false);
+            var uploadedFile = uploadedFileRepository.findByFileName(document.getFileName())
+                    .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
+            fileStorageService.deletePhysicalFile(document.getFileName(), uploadedFile.isPublic());
         } catch (Exception e) {
             log.warn("Failed to delete physical file: {}", document.getFileName());
         }
@@ -183,6 +187,9 @@ public class LessonDocumentService {
             throw new AppException(ErrorCode.ACCESS_DENIED);
         }
         
-        return fileStorageService.loadFile(document.getFileName(), false);
+        var uploadedFile = uploadedFileRepository.findByFileName(document.getFileName())
+                .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
+        
+        return fileStorageService.loadFile(document.getFileName(), uploadedFile.isPublic());
     }
 } 
