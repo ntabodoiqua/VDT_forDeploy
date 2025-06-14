@@ -60,12 +60,11 @@ public class FileController {
                 .body(resource);
     }
 
-    // Controller chuyển file từ private sang public
-    @PutMapping("/make-public/{fileName:.+}")
+    @PutMapping("/set-access/{fileName:.+}")
     @PreAuthorize("hasAnyRole('STUDENT', 'INSTRUCTOR', 'ADMIN')")
-    public ApiResponse<String> makeFilePublic(@PathVariable("fileName") String fileName) {
+    public ApiResponse<String> setFileAccess(@PathVariable("fileName") String fileName, @RequestParam boolean isPublic) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        String result = fileStorageService.makeFilePublic(fileName, username);
+        String result = fileStorageService.setFileAccess(fileName, isPublic, username);
 
         return ApiResponse.<String>builder()
                 .result(result)

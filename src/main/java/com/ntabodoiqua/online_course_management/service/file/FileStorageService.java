@@ -63,8 +63,7 @@ public class FileStorageService {
             String originalFileName = file.getOriginalFilename();
             String sanitizedFileName = originalFileName.replaceAll("[^a-zA-Z0-9._-]", "_");
 
-            String folder = isPublic ? "public/" : "private/";
-            String fileName = folder + UUID.randomUUID() + "_" + sanitizedFileName;
+            String fileName = UUID.randomUUID() + "_" + sanitizedFileName;
 
             ObjectMetadata metadata = new ObjectMetadata();
             metadata.setContentLength(file.getSize());
@@ -133,78 +132,30 @@ public class FileStorageService {
         }
     }
 
-    // Service để làm cho file trở nên công khai
-    public String makeFilePublic(String fileName, String currentUsername) {
+    public String setFileAccess(String fileName, boolean isPublic, String currentUsername) {
         UploadedFile uploadedFile = uploadedFileRepository.findByFileName(fileName)
                 .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
 
         User currentUser = userRepository.findByUsername(currentUsername)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-        
-        // Allow admin to make any file public, others can only modify their own files
+
+        // Allow admin to make any file public/private, others can only modify their own files
         boolean isAdmin = currentUser.getRoles().stream()
                 .anyMatch(role -> role.getName().equals("ADMIN"));
-        
+
         if (!isAdmin && !uploadedFile.getUploadedBy().getUsername().equals(currentUsername)) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        if (uploadedFile.isPublic()) {
-            return "File is already public: " + fileName;
+        if (uploadedFile.isPublic() == isPublic) {
+            return "File is already " + (isPublic ? "public" : "private") + ": " + fileName;
         }
 
-        // Move file from private to public folder
-        String newFileName = fileName.replaceFirst("private/", "public/");
-        s3Client.copyObject(
-                spacesProperties.getBucketName(),
-                fileName,
-                spacesProperties.getBucketName(),
-                newFileName
-        );
-        s3Client.deleteObject(spacesProperties.getBucketName(), fileName);
-
-        s3Client.setObjectAcl(spacesProperties.getBucketName(), newFileName, CannedAccessControlList.PublicRead);
-        uploadedFile.setPublic(true);
-        uploadedFile.setFileName(newFileName);
+        s3Client.setObjectAcl(spacesProperties.getBucketName(), fileName, isPublic ? CannedAccessControlList.PublicRead : CannedAccessControlList.Private);
+        uploadedFile.setPublic(isPublic);
         uploadedFileRepository.save(uploadedFile);
-        return "File is now public: " + newFileName;
-    }
 
-    // Service để làm cho file trở nên riêng tư
-    public String makeFilePrivate(String fileName, String currentUsername) {
-        UploadedFile uploadedFile = uploadedFileRepository.findByFileName(fileName)
-                .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
-
-        User currentUser = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-        
-        // Allow admin to make any file private, others can only modify their own files
-        boolean isAdmin = currentUser.getRoles().stream()
-                .anyMatch(role -> role.getName().equals("ADMIN"));
-        
-        if (!isAdmin && !uploadedFile.getUploadedBy().getUsername().equals(currentUsername)) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
-        }
-
-        if (!uploadedFile.isPublic()) {
-            return "File is already private: " + fileName;
-        }
-
-        // Move file from public to private folder
-        String newFileName = fileName.replaceFirst("public/", "private/");
-        s3Client.copyObject(
-                spacesProperties.getBucketName(),
-                fileName,
-                spacesProperties.getBucketName(),
-                newFileName
-        );
-        s3Client.deleteObject(spacesProperties.getBucketName(), fileName);
-
-        s3Client.setObjectAcl(spacesProperties.getBucketName(), newFileName, CannedAccessControlList.Private);
-        uploadedFile.setPublic(false);
-        uploadedFile.setFileName(newFileName);
-        uploadedFileRepository.save(uploadedFile);
-        return "File is now private: " + newFileName;
+        return "File is now " + (isPublic ? "public" : "private") + ": " + fileName;
     }
 
     // Service để lấy tất cả ảnh công khai của người dùng
