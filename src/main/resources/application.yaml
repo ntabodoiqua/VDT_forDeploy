@@ -18,8 +18,8 @@ spring:
     
   servlet:
     multipart:
-      max-file-size: 250MB
-      max-request-size: 250MB
+      max-file-size: 5MB
+      max-request-size: 5MB
 
 jwt:
   signerKey: "${JWT_SIGNER_KEY:U+NXeAi5ytRMjd8P5J7H6Upqm3Hvt7dyliIW5rosLvAGb3wiS6HBLj1UmbQgD485}"
