@@ -6,6 +6,8 @@ import com.ntabodoiqua.online_course_management.dto.request.user.UserFilterReque
 import com.ntabodoiqua.online_course_management.dto.request.user.UserSearchRequest;
 import com.ntabodoiqua.online_course_management.dto.request.user.UserUpdateRequest;
 import com.ntabodoiqua.online_course_management.dto.response.user.UserResponse;
+import com.ntabodoiqua.online_course_management.exception.AppException;
+import com.ntabodoiqua.online_course_management.exception.ErrorCode;
 import com.ntabodoiqua.online_course_management.service.AdminService;
 import jakarta.validation.Valid;
 import lombok.AccessLevel;
@@ -81,6 +83,7 @@ public class AdminController {
     }
 
     // Controller disable người dùng
+    // Lưu ý không thể disable người dùng admin
     @PutMapping("/{userId}/disable")
     ApiResponse<String> disableUser(@PathVariable String userId) {
         return ApiResponse.<String>builder()

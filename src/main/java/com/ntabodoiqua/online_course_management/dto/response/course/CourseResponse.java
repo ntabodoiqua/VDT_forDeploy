@@ -25,6 +25,10 @@ public class CourseResponse {
     LocalDate startDate;
     LocalDate endDate;
     CategoryResponse category;
+    
+    // Rating information
+    Double averageRating; // Average rating from reviews (1-5 scale)
+    Integer totalReviews; // Total number of approved reviews
 
     LocalDateTime createdAt;
     LocalDateTime updatedAt;

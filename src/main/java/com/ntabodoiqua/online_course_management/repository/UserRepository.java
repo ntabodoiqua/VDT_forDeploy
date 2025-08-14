@@ -41,4 +41,8 @@ public interface UserRepository extends JpaRepository<User, String>, JpaSpecific
 
     // New method to find users by avatarUrl
     List<User> findByAvatarUrl(String avatarUrl);
+    
+    // Method to find instructors
+    @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = :roleName AND u.enabled = true")
+    List<User> findByRolesNameAndEnabledTrue(@Param("roleName") String roleName);
 }

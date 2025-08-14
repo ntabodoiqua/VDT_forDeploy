@@ -16,6 +16,7 @@ import java.util.Optional;
 @Repository
 public interface CourseLessonRepository extends JpaRepository<CourseLesson, String>, JpaSpecificationExecutor<CourseLesson> {
     List<CourseLesson> findByCourseOrderByOrderIndexAsc(Course course);
+    List<CourseLesson> findByCourseAndIsVisibleTrueOrderByOrderIndexAsc(Course course);
     boolean existsByLessonId(String lessonId);
     Optional<CourseLesson> findByLesson_Id(String lessonId);
     List<CourseLesson> findByLesson(Lesson lesson);

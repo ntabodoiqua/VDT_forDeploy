@@ -24,6 +24,8 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, String> 
     void deleteByCourseId(String courseId);
     List<Enrollment> findByCourse(Course course);
 
+    List<Enrollment> findByCourseId(String courseId);
+
     @Query("SELECT e.course.id, COUNT(e.course.id) as enrollmentCount FROM Enrollment e GROUP BY e.course.id ORDER BY enrollmentCount DESC")
     Page<Object[]> findPopularCourseIds(Pageable pageable);
 

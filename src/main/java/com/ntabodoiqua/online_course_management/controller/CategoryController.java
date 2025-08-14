@@ -33,6 +33,18 @@ public class CategoryController {
                 .build();
     }
 
+    // Lấy danh sách danh mục công khai
+    @GetMapping("/public")
+    public ApiResponse<Page<CategoryResponse>> getPublicCategories(
+            @ModelAttribute CategoryFilterRequest filter,
+            Pageable pageable) {
+
+        Page<CategoryResponse> categories = categoryService.searchCategories(filter, pageable);
+        return ApiResponse.<Page<CategoryResponse>>builder()
+                .result(categories)
+                .build();
+    }
+
     // Tạo danh mục mới
     @PostMapping()
     public ApiResponse<CategoryResponse> createCategory(@RequestBody @Valid CategoryRequest categoryRequest) {

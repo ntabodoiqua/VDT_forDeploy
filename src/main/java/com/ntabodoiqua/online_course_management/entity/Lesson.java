@@ -25,6 +25,7 @@ public class Lesson {
     String description;
 
     @Lob
+    @Column(columnDefinition = "LONGTEXT")
     String content;
 
     LocalDateTime createdAt;
@@ -35,4 +36,8 @@ public class Lesson {
 
     @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, orphanRemoval = true)
     Set<LessonDocument> lessonDocuments;
+
+    // Quan hệ 1:1 với Quiz
+    @OneToOne(mappedBy = "lesson", cascade = CascadeType.ALL, orphanRemoval = true)
+    Quiz quiz;
 }

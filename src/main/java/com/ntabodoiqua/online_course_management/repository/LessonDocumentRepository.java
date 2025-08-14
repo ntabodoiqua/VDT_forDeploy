@@ -17,4 +17,7 @@ public interface LessonDocumentRepository extends JpaRepository<LessonDocument, 
     
     // New method to find documents by fileName
     List<LessonDocument> findByFileName(String fileName);
+    
+    // Count method to check if lesson has documents  
+    long countByLessonId(String lessonId);
 } 

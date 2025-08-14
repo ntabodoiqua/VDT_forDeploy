@@ -1,0 +1,35 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Maven
+target/
+
+# IDEs
+.idea/
+.vscode/
+*.ipr
+*.iws
+*.iml
+.settings/
+.classpath
+.project
+.factorypath
+.springBeans
+.sts4-cache
+
+# Logs and local data
+logs/
+uploads/
+Bao cao/
+
+# Files
+*.sql
+*.graphml
+*.png
+readme.MD
+HELP.md 

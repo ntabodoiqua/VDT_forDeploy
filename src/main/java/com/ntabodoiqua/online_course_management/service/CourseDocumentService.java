@@ -10,6 +10,7 @@ import com.ntabodoiqua.online_course_management.exception.ErrorCode;
 import com.ntabodoiqua.online_course_management.mapper.DocumentMapper;
 import com.ntabodoiqua.online_course_management.repository.CourseDocumentRepository;
 import com.ntabodoiqua.online_course_management.repository.CourseRepository;
+import com.ntabodoiqua.online_course_management.repository.UploadedFileRepository;
 import com.ntabodoiqua.online_course_management.repository.UserRepository;
 import com.ntabodoiqua.online_course_management.repository.EnrollmentRepository;
 import com.ntabodoiqua.online_course_management.service.file.FileStorageService;
@@ -38,6 +39,7 @@ public class CourseDocumentService {
     CourseRepository courseRepository;
     UserRepository userRepository;
     EnrollmentRepository enrollmentRepository;
+    UploadedFileRepository uploadedFileRepository;
     DocumentMapper documentMapper;
     FileStorageService fileStorageService;
 
@@ -67,7 +69,7 @@ public class CourseDocumentService {
         }
         
         // Store file
-        String fileName = fileStorageService.storeFile(file, false); // Private file for course documents
+        String fileName = fileStorageService.storeFile(file, false).getFileName(); // Private file for course documents
         
         // Create document entity
         CourseDocument document = CourseDocument.builder()
@@ -141,7 +143,9 @@ public class CourseDocumentService {
         
         // Delete physical file only (not the UploadedFile record to avoid circular dependency)
         try {
-            fileStorageService.deletePhysicalFile(document.getFileName(), false);
+            var uploadedFile = uploadedFileRepository.findByFileName(document.getFileName())
+                    .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
+            fileStorageService.deletePhysicalFile(document.getFileName(), uploadedFile.isPublic());
         } catch (Exception e) {
             log.warn("Failed to delete physical file: {}", document.getFileName());
         }
@@ -169,6 +173,9 @@ public class CourseDocumentService {
             throw new AppException(ErrorCode.ACCESS_DENIED);
         }
         
-        return fileStorageService.loadFile(document.getFileName(), false);
+        var uploadedFile = uploadedFileRepository.findByFileName(document.getFileName())
+                .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
+        
+        return fileStorageService.loadFile(document.getFileName(), uploadedFile.isPublic());
     }
 } 

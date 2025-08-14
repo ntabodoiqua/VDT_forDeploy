@@ -3,7 +3,9 @@ package com.ntabodoiqua.online_course_management.controller;
 import com.ntabodoiqua.online_course_management.dto.request.ApiResponse;
 import com.ntabodoiqua.online_course_management.dto.request.lesson.LessonFilterRequest;
 import com.ntabodoiqua.online_course_management.dto.request.lesson.LessonRequest;
+import com.ntabodoiqua.online_course_management.dto.response.course.CourseResponse;
 import com.ntabodoiqua.online_course_management.dto.response.lesson.LessonResponse;
+import com.ntabodoiqua.online_course_management.dto.statistic.LessonQuizStatsDto;
 import com.ntabodoiqua.online_course_management.service.LessonService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +15,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/lessons")
 @RequiredArgsConstructor
@@ -20,6 +24,25 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 public class LessonController {
     LessonService lessonService;
+
+
+    @GetMapping("/{lessonId}/courses")
+    public ApiResponse<List<CourseResponse>> getCoursesByLesson(@PathVariable String lessonId) {
+        return ApiResponse.<List<CourseResponse>>builder()
+                .result(lessonService.getCoursesByLesson(lessonId))
+                .message("Courses for lesson fetched successfully")
+                .build();
+    }
+
+    @GetMapping("/{lessonId}/course/{courseId}/quiz-stats")
+    public ApiResponse<LessonQuizStatsDto> getLessonQuizStatsInCourse(
+            @PathVariable String lessonId, @PathVariable String courseId) {
+        return ApiResponse.<LessonQuizStatsDto>builder()
+                .result(lessonService.getLessonQuizStatsInCourse(lessonId, courseId))
+                .message("Quiz statistics fetched successfully")
+                .build();
+    }
+
     @PostMapping
     public ApiResponse<LessonResponse> createLesson(@RequestBody LessonRequest request) {
         return ApiResponse.<LessonResponse>builder()

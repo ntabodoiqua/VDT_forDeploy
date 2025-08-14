@@ -82,4 +82,17 @@ public class CourseLessonController {
                 .build();
     }
 
+    // Endpoint public cho student xem danh sách bài học với thông tin hạn chế
+    @GetMapping("/public")
+    public ApiResponse<Page<CourseLessonResponse>> getPublicLessonsOfCourse(
+            @PathVariable String courseId,
+            @ModelAttribute CourseLessonFilterRequest filter,
+            Pageable pageable
+    ) {
+        return ApiResponse.<Page<CourseLessonResponse>>builder()
+                .result(courseLessonService.getPublicLessonsOfCourse(courseId, filter, pageable))
+                .message("Public course lessons fetched successfully")
+                .build();
+    }
+
 }

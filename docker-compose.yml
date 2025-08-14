@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # Service cho Backend Spring Boot (tôi đổi tên từ "app" thành "backend" cho nhất quán)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vdt-backend
+    restart: always
+    # Môi trường sẽ được lấy từ file .env mà chúng ta đã cấu hình
+    env_file:
+      - .env
+    # Service backend không còn phụ thuộc vào service db nữa
+    networks:
+      - vdt-network
+
+  # Service cho Nginx Reverse Proxy
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: vdt-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./frontend/build:/var/www/html
+      - /etc/letsencrypt:/etc/letsencrypt:ro 
+      - /var/www/certbot:/var/www/certbot:ro
+    depends_on:
+      - backend
+    networks:
+      - vdt-network
+
+networks:
+  vdt-network:
+    driver: bridge
+
+# Không cần khai báo volumes cho database ở đây nữa

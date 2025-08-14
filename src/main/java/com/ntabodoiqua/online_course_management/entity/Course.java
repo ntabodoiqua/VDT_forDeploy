@@ -24,6 +24,7 @@ public class Course {
     String description;
     // Mô tả chi tiết
     @Lob
+    @Column(columnDefinition = "LONGTEXT")
     String detailedDescription;
     // Đường dẫn ảnh đại diện
     String thumbnailUrl;

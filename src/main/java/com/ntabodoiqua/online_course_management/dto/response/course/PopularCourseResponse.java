@@ -12,4 +12,6 @@ import lombok.NoArgsConstructor;
 public class PopularCourseResponse {
     private CourseResponse course;
     private Long enrollmentCount;
+    private Double averageRating;
+    private Long totalReviews;
 } 

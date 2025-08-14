@@ -41,29 +41,17 @@ public class FileController {
     @PostMapping("/upload")
     public ApiResponse<String> upload(@RequestParam("file") MultipartFile file,
                                       @RequestParam boolean isPublic) {
-        String fileName = fileStorageService.storeFile(file, isPublic);
-        log.info("File upload process initiated for: {}", fileName);
+        UploadedFile uploadedFile = fileStorageService.storeFile(file, isPublic);
+        log.info("File upload process initiated for: {}", uploadedFile.getFileName());
         return ApiResponse.<String>builder()
-                .result("File uploaded successfully: " + fileName)
+                .result("File uploaded successfully: " + uploadedFile.getFileName())
                 .build();
     }
 
-    @GetMapping("/download/{fileName}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable String fileName) {
+    @GetMapping("/download/{fileName:.+}")
+    public ResponseEntity<Resource> downloadFile(@PathVariable("fileName") String fileName) {
         UploadedFile file = uploadedFileRepository.findByFileName(fileName)
                 .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
-
-        if (!file.isPublic()) {
-            // kiểm tra quyền sở hữu hoặc tham gia khóa học
-            String username = SecurityContextHolder.getContext().getAuthentication().getName();
-            boolean hasAccess = file.getUploadedBy().getUsername().equals(username);
-            // Nếu file có liên kết với khóa học, kiểm tra enrollment
-            if (file.getCourse() != null) {
-                hasAccess = hasAccess || userService.isEnrolled(username, file.getCourse().getId());
-            }
-
-            if (!hasAccess) throw new AppException(ErrorCode.ACCESS_DENIED);
-        }
 
         Resource resource = fileStorageService.loadFile(fileName, file.isPublic());
 
@@ -72,12 +60,11 @@ public class FileController {
                 .body(resource);
     }
 
-    // Controller chuyển file từ private sang public
-    @PutMapping("/make-public/{fileName}")
+    @PutMapping("/set-access/{fileName:.+}")
     @PreAuthorize("hasAnyRole('STUDENT', 'INSTRUCTOR', 'ADMIN')")
-    public ApiResponse<String> makeFilePublic(@PathVariable String fileName) {
+    public ApiResponse<String> setFileAccess(@PathVariable("fileName") String fileName, @RequestParam boolean isPublic) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        String result = fileStorageService.makeFilePublic(fileName, username);
+        String result = fileStorageService.setFileAccess(fileName, isPublic, username);
 
         return ApiResponse.<String>builder()
                 .result(result)
@@ -97,9 +84,9 @@ public class FileController {
                 .build();
     }
 
-    @DeleteMapping("/{fileName}")
+    @DeleteMapping("/{fileName:.+}")
     @PreAuthorize("hasAnyRole('STUDENT', 'INSTRUCTOR', 'ADMIN')")
-    public ApiResponse<Void> deleteFile(@PathVariable String fileName) {
+    public ApiResponse<Void> deleteFile(@PathVariable("fileName") String fileName) {
         fileStorageService.deleteFile(fileName);
         return ApiResponse.<Void>builder()
                 .message("File deleted successfully")
@@ -119,13 +106,29 @@ public class FileController {
                 .build();
     }
 
-    @GetMapping("/check-usage/{fileName}")
+    @GetMapping("/check-usage/{fileName:.+}")
     @PreAuthorize("hasAnyRole('STUDENT', 'INSTRUCTOR', 'ADMIN')")
-    public ApiResponse<FileUsageResponse> checkFileUsage(@PathVariable String fileName) {
+    public ApiResponse<FileUsageResponse> checkFileUsage(@PathVariable("fileName") String fileName) {
         FileUsageResponse usage = fileStorageService.checkFileUsage(fileName);
         return ApiResponse.<FileUsageResponse>builder()
                 .message("File usage checked successfully")
                 .result(usage)
                 .build();
     }
+
+    // API lấy tất cả file đã upload của người dùng
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<Page<UploadedFile>> getAllUploadedFiles(
+            @RequestParam(required = false) String contentType,
+            @RequestParam(required = false) String fileName,
+            @RequestParam(required = false) String uploaderName,
+            Pageable pageable) {
+        Page<UploadedFile> files = fileStorageService.getAllUploadedFiles(contentType, fileName, uploaderName, pageable);
+        return ApiResponse.<Page<UploadedFile>>builder()
+                .message("All uploaded files fetched successfully")
+                .result(files)
+                .build();
+    }
+
 }

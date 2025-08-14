@@ -25,6 +25,14 @@ public class Progress {
     @ManyToOne
     Lesson lesson; // Bài học hiện tại
 
+    @Column(name = "is_completed")
     boolean isCompleted; // Đã hoàn thành bài học hay chưa
     LocalDate completionDate; // Ngày hoàn thành bài học
+
+    // Quiz completion tracking
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "completed_quiz_id")
+    Quiz completedQuiz; // Quiz đã hoàn thành (nếu có)
+
+    Double quizScore; // Điểm quiz đạt được
 }

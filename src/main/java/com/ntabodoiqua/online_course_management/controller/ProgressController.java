@@ -35,4 +35,15 @@ public class ProgressController {
                 .result(progressService.updateProgress(request))
                 .build();
     }
+
+    @PostMapping("/lesson/{lessonId}/auto-complete")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ApiResponse<ProgressResponse> autoCompleteLesson(@PathVariable String enrollmentId, @PathVariable String lessonId) {
+        // Get current user id from security context
+        return ApiResponse.<ProgressResponse>builder()
+                .result(progressService.autoCompleteLessonIfEmpty(
+                        org.springframework.security.core.context.SecurityContextHolder.getContext()
+                                .getAuthentication().getName(), lessonId))
+                .build();
+    }
 } 

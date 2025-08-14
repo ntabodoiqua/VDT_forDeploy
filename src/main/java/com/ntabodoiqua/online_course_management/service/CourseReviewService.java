@@ -201,4 +201,19 @@ public class CourseReviewService {
         Page<CourseReview> reviews = courseReviewRepository.findAll(pageable);
         return reviews.map(this::toResponse);
     }
+
+    // Service lấy tất cả đánh giá đã được xử lý có trạng thái approved = true và rejected = false
+    // cho tất cả người dùng (kể cả người dùng chưa đăng nhập)
+    public Page<CourseReviewResponse> getAllHandledReviews(Pageable pageable) {
+        Specification<CourseReview> spec = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.isTrue(root.get("isApproved")));
+            predicates.add(criteriaBuilder.isFalse(root.get("isRejected")));
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<CourseReview> reviews = courseReviewRepository.findAll(spec, pageable);
+        return reviews.map(this::toResponse);
+    }
+
 } 

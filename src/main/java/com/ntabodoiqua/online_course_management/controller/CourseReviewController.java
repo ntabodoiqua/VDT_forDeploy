@@ -90,5 +90,13 @@ public class CourseReviewController {
                 .message("Review rejected successfully")
                 .build();
     }
+
+    // Lấy tất cả đánh giá đã được xử lý cho mọi người dùng
+    @GetMapping("public/handled")
+    public ApiResponse<?> getAllHandledReviews(Pageable pageable) {
+        return ApiResponse.<Object>builder()
+                .result(courseReviewService.getAllHandledReviews(pageable))
+                .build();
+    }
     
 } 

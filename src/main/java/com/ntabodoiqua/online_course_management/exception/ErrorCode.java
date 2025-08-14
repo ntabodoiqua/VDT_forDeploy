@@ -35,6 +35,7 @@ public enum ErrorCode {
     CATEGORY_NOT_EXISTED(1021, "Category not existed", HttpStatus.NOT_FOUND),
     COURSE_EXISTED(1022, "Course existed", HttpStatus.BAD_REQUEST),
     COURSE_NOT_EXISTED(1023, "Course not existed", HttpStatus.NOT_FOUND),
+    COURSE_NOT_ACTIVE(1079, "Course is not active", HttpStatus.FORBIDDEN),
 
     // Lỗi file
     FILE_CANNOT_STORED(1024, "File cannot be stored", HttpStatus.INTERNAL_SERVER_ERROR),
@@ -81,7 +82,38 @@ public enum ErrorCode {
     // Lỗi tài liệu
     DOCUMENT_NOT_FOUND(1054, "Document not found", HttpStatus.NOT_FOUND),
     INVALID_FILE(1055, "Invalid file", HttpStatus.BAD_REQUEST),
-    ACCESS_DENIED(1056, "Access denied", HttpStatus.FORBIDDEN),;
+    ACCESS_DENIED(1056, "Access denied", HttpStatus.FORBIDDEN),
+    
+    // Lỗi Quiz
+    QUIZ_NOT_FOUND(1057, "Quiz not found", HttpStatus.NOT_FOUND),
+    QUIZ_ALREADY_EXISTS_FOR_LESSON(1058, "Quiz already exists for this lesson", HttpStatus.BAD_REQUEST),
+    QUIZ_TITLE_ALREADY_EXISTS(1059, "Quiz title already exists", HttpStatus.BAD_REQUEST),
+    QUIZ_NOT_AVAILABLE(1060, "Quiz is not available", HttpStatus.BAD_REQUEST),
+    QUIZ_HAS_ATTEMPTS_CANNOT_DELETE(1061, "Quiz has attempts and cannot be deleted", HttpStatus.BAD_REQUEST),
+    QUESTION_NOT_FOUND(1062, "Question not found", HttpStatus.NOT_FOUND),
+    QUESTION_HAS_ATTEMPTS_CANNOT_DELETE(1063, "Question has attempts and cannot be deleted", HttpStatus.BAD_REQUEST),
+    QUESTION_MUST_HAVE_ANSWERS(1064, "Question must have answers", HttpStatus.BAD_REQUEST),
+    QUESTION_MUST_HAVE_AT_LEAST_TWO_ANSWERS(1065, "Question must have at least two answers", HttpStatus.BAD_REQUEST),
+    QUESTION_MUST_HAVE_EXACTLY_ONE_CORRECT_ANSWER(1066, "Question must have exactly one correct answer", HttpStatus.BAD_REQUEST),
+    
+    // Lỗi Quiz Attempt
+    QUIZ_MAX_ATTEMPTS_EXCEEDED(1067, "Maximum attempts exceeded", HttpStatus.BAD_REQUEST),
+    QUIZ_ATTEMPT_NOT_FOUND(1068, "Quiz attempt not found", HttpStatus.NOT_FOUND),
+    QUIZ_ATTEMPT_NOT_IN_PROGRESS(1069, "Quiz attempt is not in progress", HttpStatus.BAD_REQUEST),
+    QUIZ_ATTEMPT_EXPIRED(1070, "Quiz attempt has expired", HttpStatus.BAD_REQUEST),
+    ATTEMPT_ANSWER_NOT_FOUND(1071, "Attempt answer not found", HttpStatus.NOT_FOUND),
+    ANSWER_NOT_FOUND(1072, "Answer not found", HttpStatus.NOT_FOUND),
+    INVALID_ANSWER_FOR_QUESTION(1073, "Invalid answer for this question", HttpStatus.BAD_REQUEST),
+    NO_ACTIVE_ATTEMPT_FOUND(1074, "No active attempt found", HttpStatus.NOT_FOUND),
+    NO_ATTEMPTS_FOUND(1075, "No attempts found", HttpStatus.NOT_FOUND),
+    QUIZ_NOT_STARTED(1076, "Quiz has not started yet", HttpStatus.BAD_REQUEST),
+    QUIZ_EXPIRED(1077, "Quiz has expired", HttpStatus.BAD_REQUEST),
+    QUESTION_ORDER_INDEX_ALREADY_EXISTS(1078, "Question order index already exists in this quiz", HttpStatus.BAD_REQUEST),
+
+
+    // Lỗi khác
+    ADMIN_CANNOT_DELETE_SELF(1080, "Admin cannot delete themselves", HttpStatus.BAD_REQUEST),
+    ;
 
 
 

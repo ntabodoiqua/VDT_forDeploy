@@ -88,4 +88,13 @@ public class EnrollmentController {
                 .build();
     }
 
+    // Lấy enrollment của student cho một course cụ thể (cho student xem tiến độ của mình)
+    @GetMapping("/my/course/{courseId}")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ApiResponse<EnrollmentResponse> getMyEnrollmentForCourse(@PathVariable String courseId) {
+        return ApiResponse.<EnrollmentResponse>builder()
+                .result(enrollmentService.getMyEnrollmentForCourse(courseId))
+                .build();
+    }
+
 }

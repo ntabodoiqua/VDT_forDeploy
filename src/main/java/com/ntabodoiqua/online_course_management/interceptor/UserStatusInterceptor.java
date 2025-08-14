@@ -20,19 +20,16 @@ public class UserStatusInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        
-        // Skip check for public endpoints
-        if (authentication == null || !authentication.isAuthenticated()) {
+
+        // Skip checks if user is not authenticated, is an admin, or is anonymous
+        if (authentication == null || !authentication.isAuthenticated() ||
+                authentication.getAuthorities().stream()
+                        .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN")
+                                            || authority.getAuthority().equals("ROLE_ANONYMOUS"))) {
             return true;
         }
 
-        // Skip check for admin users
-        if (authentication.getAuthorities().stream()
-                .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"))) {
-            return true;
-        }
-
-        // Check if user is enabled
+        // For regular authenticated users, check if their account is enabled
         String username = authentication.getName();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));

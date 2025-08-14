@@ -29,6 +29,4 @@ public class UploadedFile {
     @ManyToOne
     User uploadedBy; // Người dùng đã tải lên tệp
 
-    @ManyToOne
-    Course course; // Khóa học liên kết với tệp (nếu có)
 }

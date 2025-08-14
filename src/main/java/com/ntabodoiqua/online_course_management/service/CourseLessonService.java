@@ -24,9 +24,12 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -43,7 +46,7 @@ public class CourseLessonService {
     EnrollmentRepository enrollmentRepository;
     ProgressService progressService;
 
-    /*** Helper method: kiểm tra quyền instructor/admin trên course ***/
+    /*** Helper method: kiểm tra quyền instructor/admin hoặc học sinh đã đăng ký courses trên course ***/
     private void checkCoursePermission(Course course) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username)
@@ -51,7 +54,10 @@ public class CourseLessonService {
         boolean isAdmin = user.getRoles().stream().anyMatch(r -> r.getName().equals("ADMIN"));
         boolean isInstructor = user.getRoles().stream().anyMatch(r -> r.getName().equals("INSTRUCTOR"));
         boolean isOwner = course.getInstructor() != null && course.getInstructor().getUsername().equals(username);
-        if (!isAdmin && !(isInstructor && isOwner)) {
+        // Kiểm tra xem người dùng có phải là học sinh đã đăng ký khóa học không
+        boolean isEnrolled = enrollmentRepository.existsByStudentIdAndCourseId(user.getId(), course.getId());
+
+        if (!isAdmin && !(isInstructor && isOwner) && !isEnrolled) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
     }
@@ -70,6 +76,25 @@ public class CourseLessonService {
         }
     }
 
+    /**
+     * Đồng bộ hóa và cập nhật chính xác totalLessons cho course
+     * Sử dụng transaction để đảm bảo consistency
+     */
+    @Transactional
+    private void syncCourseTotalLessons(Course course) {
+        // Đếm số lượng bài học thực tế từ database
+        long actualLessonCount = courseLessonRepository.countByCourse(course);
+        
+        // Cập nhật nếu khác biệt
+        if (course.getTotalLessons() != (int) actualLessonCount) {
+            log.info("Syncing totalLessons for course {}: {} -> {}", 
+                course.getId(), course.getTotalLessons(), actualLessonCount);
+            course.setTotalLessons((int) actualLessonCount);
+            courseRepository.save(course);
+        }
+    }
+
+    @Transactional
     public CourseLessonResponse addLessonToCourse(String courseId, CourseLessonRequest request) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_EXISTED));
@@ -112,9 +137,8 @@ public class CourseLessonService {
 
         courseLesson = courseLessonRepository.save(courseLesson);
 
-        // Cập nhật tổng số bài học
-        course.setTotalLessons(course.getTotalLessons() + 1);
-        courseRepository.save(course);
+        // Đồng bộ hóa totalLessons với database thực tế
+        syncCourseTotalLessons(course);
 
         // Cập nhật progress cho tất cả enrollment của course
         updateProgressForAllEnrollmentsInCourse(course);
@@ -122,6 +146,7 @@ public class CourseLessonService {
         return courseLessonMapper.toCourseLessonResponse(courseLesson);
     }
 
+    @Transactional
     public CourseLessonResponse updateCourseLesson(String courseId, String courseLessonId, CourseLessonUpdateRequest request) {
         CourseLesson courseLesson = courseLessonRepository.findById(courseLessonId)
                 .orElseThrow(() -> new AppException(ErrorCode.COURSE_LESSON_NOT_FOUND));
@@ -161,6 +186,7 @@ public class CourseLessonService {
         return courseLessonMapper.toCourseLessonResponse(courseLesson);
     }
 
+    @Transactional
     public void removeLessonFromCourse(String courseId, String courseLessonId) {
         CourseLesson courseLessonToRemove = courseLessonRepository.findById(courseLessonId)
                 .orElseThrow(() -> new AppException(ErrorCode.COURSE_LESSON_NOT_FOUND));
@@ -188,15 +214,8 @@ public class CourseLessonService {
             courseLessonRepository.save(lesson);
         }
 
-        // Cập nhật tổng số bài học
-        Integer currentTotalLessons = course.getTotalLessons();
-        if (currentTotalLessons == null || currentTotalLessons <= 0) {
-            long actualLessonCount = courseLessonRepository.countByCourse(course);
-            course.setTotalLessons((int) actualLessonCount);
-        } else {
-            course.setTotalLessons(currentTotalLessons - 1);
-        }
-        courseRepository.save(course);
+        // Đồng bộ hóa totalLessons với database thực tế
+        syncCourseTotalLessons(course);
 
         // Cập nhật progress cho tất cả enrollment của course
         updateProgressForAllEnrollmentsInCourse(course);
@@ -238,5 +257,116 @@ public class CourseLessonService {
         CourseLesson courseLesson = courseLessonRepository.findById(courseLessonId)
                 .orElseThrow(() -> new AppException(ErrorCode.COURSE_LESSON_NOT_FOUND));
         return courseLessonMapper.toCourseLessonResponse(courseLesson);
+    }
+
+    /**
+     * Lấy danh sách bài học cho student
+     * - Nếu student đã enrolled: trả về full content
+     * - Nếu chưa enrolled: chỉ trả về thông tin cơ bản
+     */
+    public Page<CourseLessonResponse> getPublicLessonsOfCourse(String courseId, CourseLessonFilterRequest filter, Pageable pageable) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_EXISTED));
+        
+        // Chỉ cho phép xem khóa học active
+        if (!course.isActive()) {
+            throw new AppException(ErrorCode.COURSE_NOT_ACTIVE);
+        }
+
+        // Lấy tất cả bài học visible của khóa học, sắp xếp theo orderIndex
+        List<CourseLesson> allCourseLessons = courseLessonRepository.findByCourseAndIsVisibleTrueOrderByOrderIndexAsc(course);
+
+        // Kiểm tra enrollment của user hiện tại
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        final boolean isEnrolled;
+        
+        if (!"anonymousUser".equals(username)) {
+            User currentUser = userRepository.findByUsername(username).orElse(null);
+            if (currentUser != null) {
+                isEnrolled = enrollmentRepository.findByStudent(currentUser)
+                        .stream()
+                        .anyMatch(enrollment -> enrollment.getCourse().getId().equals(courseId));
+            } else {
+                isEnrolled = false;
+            }
+        } else {
+            isEnrolled = false;
+        }
+
+        // Convert sang response dựa vào enrollment status
+        List<CourseLessonResponse> responses = allCourseLessons.stream()
+                .map(courseLesson -> isEnrolled ? 
+                        courseLessonMapper.toCourseLessonResponse(courseLesson) : 
+                        mapToPublicCourseLessonResponse(courseLesson))
+                .collect(Collectors.toList());
+
+        // Tạo Page manually để phù hợp với Pageable
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), responses.size());
+        
+        List<CourseLessonResponse> pagedContent = start < responses.size() ? 
+                responses.subList(start, end) : 
+                new ArrayList<>();
+
+        return new PageImpl<>(pagedContent, pageable, responses.size());
+    }
+
+    /**
+     * Map CourseLesson sang response với thông tin hạn chế cho public
+     */
+    private CourseLessonResponse mapToPublicCourseLessonResponse(CourseLesson courseLesson) {
+        Lesson lesson = courseLesson.getLesson();
+        
+        return CourseLessonResponse.builder()
+                .id(courseLesson.getId())
+                .lesson(com.ntabodoiqua.online_course_management.dto.response.lesson.LessonResponse.builder()
+                        .id(lesson.getId())
+                        .title(lesson.getTitle())
+                        .description(lesson.getDescription())
+                        // Không hiển thị content, duration, hoặc thông tin chi tiết khác
+                        .build())
+                .orderIndex(courseLesson.getOrderIndex())
+                .isVisible(courseLesson.getIsVisible())
+                // Không hiển thị prerequisite để tránh lộ cấu trúc khóa học
+                .build();
+    }
+
+    /**
+     * Batch sync totalLessons cho tất cả courses
+     * Admin utility method để fix inconsistency
+     */
+    @Transactional
+    public void batchSyncAllCoursesTotalLessons() {
+        log.info("Starting batch sync for all courses totalLessons");
+        List<Course> allCourses = courseRepository.findAll();
+        
+        int updatedCount = 0;
+        for (Course course : allCourses) {
+            long actualLessonCount = courseLessonRepository.countByCourse(course);
+            if (course.getTotalLessons() != (int) actualLessonCount) {
+                log.info("Syncing course {}: {} -> {}", 
+                    course.getId(), course.getTotalLessons(), actualLessonCount);
+                course.setTotalLessons((int) actualLessonCount);
+                courseRepository.save(course);
+                updatedCount++;
+            }
+        }
+        
+        log.info("Batch sync completed. Updated {} out of {} courses", updatedCount, allCourses.size());
+    }
+
+    /**
+     * Sync totalLessons cho một course cụ thể - public method
+     */
+    @Transactional
+    public void syncSpecificCourseTotalLessons(String courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_EXISTED));
+        
+        checkCoursePermission(course);
+        syncCourseTotalLessons(course);
+        
+        log.info("Synced totalLessons for course: {}", courseId);
     }
 }

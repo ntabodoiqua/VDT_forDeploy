@@ -8,6 +8,7 @@ import com.ntabodoiqua.online_course_management.dto.request.course.CourseFilterR
 import com.ntabodoiqua.online_course_management.dto.request.course.CourseUpdateRequest;
 import com.ntabodoiqua.online_course_management.dto.request.lesson.LessonFilterRequest;
 import com.ntabodoiqua.online_course_management.dto.response.course.CourseResponse;
+import com.ntabodoiqua.online_course_management.dto.response.enrollment.EnrollmentResponse;
 import com.ntabodoiqua.online_course_management.dto.response.lesson.LessonResponse;
 import com.ntabodoiqua.online_course_management.exception.AppException;
 import com.ntabodoiqua.online_course_management.exception.ErrorCode;
@@ -75,9 +76,33 @@ public class CourseController {
                 .build();
     }
 
+    @GetMapping("/public")
+    public ApiResponse<Page<CourseResponse>> getAllPublicCourses(
+            @ModelAttribute CourseFilterRequest filter,
+            Pageable pageable) {
+        Page<CourseResponse> courses = courseService.getCourses(filter, pageable);
+        return ApiResponse.<Page<CourseResponse>>builder()
+                .result(courses)
+                .build();
+    }
+
+    // API lấy danh sách các khóa học của tôi
+    @GetMapping("/my")
+    public ApiResponse<Page<EnrollmentResponse>> getMyCourses(Pageable pageable) {
+        Page<EnrollmentResponse> courses = courseService.getMyCourses(pageable);
+        return ApiResponse.<Page<EnrollmentResponse>>builder()
+                .result(courses)
+                .build();
+    }
+
     // API lấy thông tin chi tiết của một khóa học theo ID
     @GetMapping("/{courseId}")
     public ApiResponse<CourseResponse> getCourseById(@PathVariable String courseId) {
+        return ApiResponse.<CourseResponse>builder().result(courseService.getCourseById(courseId)).build();
+    }
+
+    @GetMapping("/public/{courseId}")
+    public ApiResponse<CourseResponse> getPublicCourseById(@PathVariable String courseId) {
         return ApiResponse.<CourseResponse>builder().result(courseService.getCourseById(courseId)).build();
     }
 
@@ -135,5 +160,26 @@ public class CourseController {
                 .build();
     }
 
-    
+    // API đồng bộ totalLessons cho tất cả khóa học (Admin only)
+    @PostMapping("/admin/sync-all-total-lessons")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<String> syncAllCoursesTotalLessons() {
+        courseService.syncAllCoursesTotalLessons();
+        return ApiResponse.<String>builder()
+                .message("Successfully synced totalLessons for all courses")
+                .result("Sync completed")
+                .build();
+    }
+
+    // API đồng bộ totalLessons cho một khóa học cụ thể
+    @PostMapping("/{courseId}/sync-total-lessons")
+    @PreAuthorize("hasRole('INSTRUCTOR') or hasRole('ADMIN')")
+    public ApiResponse<String> syncCourseTotalLessons(@PathVariable String courseId) {
+        courseService.syncCourseTotalLessons(courseId);
+        return ApiResponse.<String>builder()
+                .message("Successfully synced totalLessons for course")
+                .result("Sync completed for course: " + courseId)
+                .build();
+    }
+
 }

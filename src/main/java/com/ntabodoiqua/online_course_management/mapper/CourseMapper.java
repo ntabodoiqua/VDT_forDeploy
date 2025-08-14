@@ -16,6 +16,8 @@ public interface CourseMapper {
 
     // Map Course entity to CourseResponse DTO
     @Mapping(source = "active", target = "isActive")
+    @Mapping(target = "averageRating", ignore = true)
+    @Mapping(target = "totalReviews", ignore = true)
     CourseResponse toCourseResponse(Course course);
 
     // Cập nhật thông tin từ update request vào Course entity

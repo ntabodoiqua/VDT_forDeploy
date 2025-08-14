@@ -45,4 +45,14 @@ public interface CourseReviewRepository extends JpaRepository<CourseReview, Stri
                    "GROUP BY DATE_FORMAT(cr.review_date, '%Y-%m') " +
                    "ORDER BY month DESC", nativeQuery = true)
     List<Object[]> findMonthlyRatingTrendsByInstructorId(@Param("instructorId") String instructorId);
+
+    // Course-specific rating methods
+    @Query("SELECT AVG(cr.rating) FROM CourseReview cr WHERE cr.course.id = :courseId AND cr.isApproved = true")
+    Double findAverageRatingByCourseId(@Param("courseId") String courseId);
+
+    Integer countByCourseIdAndIsApprovedTrue(String courseId);
+    
+    // Count approved reviews by instructor
+    @Query("SELECT COUNT(cr) FROM CourseReview cr WHERE cr.course.instructor.id = :instructorId AND cr.isApproved = true")
+    Integer countApprovedReviewsByInstructorId(@Param("instructorId") String instructorId);
 }

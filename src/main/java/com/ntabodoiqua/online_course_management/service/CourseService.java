@@ -8,16 +8,20 @@ import com.ntabodoiqua.online_course_management.entity.*;
 import com.ntabodoiqua.online_course_management.enums.DefaultUrl;
 import com.ntabodoiqua.online_course_management.exception.AppException;
 import com.ntabodoiqua.online_course_management.exception.ErrorCode;
+import com.ntabodoiqua.online_course_management.mapper.CategoryMapper;
 import com.ntabodoiqua.online_course_management.mapper.CourseMapper;
+import com.ntabodoiqua.online_course_management.mapper.EnrollmentMapper;
 import com.ntabodoiqua.online_course_management.mapper.UserMapper;
 import com.ntabodoiqua.online_course_management.repository.*;
 import com.ntabodoiqua.online_course_management.service.file.FileStorageService;
 import com.ntabodoiqua.online_course_management.specification.CourseSpecification;
+import com.ntabodoiqua.online_course_management.configuration.properties.DigitalOceanSpacesProperties;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,14 +32,17 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.context.annotation.Lazy;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import com.ntabodoiqua.online_course_management.dto.response.course.PopularCourseResponse;
 import org.springframework.data.domain.PageRequest;
+import com.ntabodoiqua.online_course_management.dto.response.enrollment.EnrollmentResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -61,6 +68,13 @@ public class CourseService {
     CourseLessonRepository courseLessonRepository;
     EnrollmentRepository enrollmentRepository;
     CourseReviewRepository courseReviewRepository;
+    CategoryMapper categoryMapper;
+    EnrollmentMapper enrollmentMapper;
+    DigitalOceanSpacesProperties spacesProperties;
+
+    // Forward declaration to avoid circular dependency
+    @Lazy
+    CourseLessonService courseLessonService;
 
     // Service tạo khóa học mới
     @PreAuthorize("hasRole('INSTRUCTOR') or hasRole('ADMIN')")
@@ -80,8 +94,8 @@ public class CourseService {
         // Xử lý thumbnail (nếu có)
         String thumbnailUrl;
         if (thumbnail != null && !thumbnail.isEmpty()) {
-            String fileName = fileStorageService.storeFile(thumbnail, true);
-            thumbnailUrl = "/uploads/public/" + fileName;
+            String fileName = fileStorageService.storeFile(thumbnail, true).getFileName();
+            thumbnailUrl = spacesProperties.getBaseUrl() + "/" + fileName;
         } else {
             thumbnailUrl = DefaultUrl.COURSE_THUMBNAIL.getURL();
         }
@@ -143,8 +157,8 @@ public class CourseService {
 
         // Thumbnail
         if (thumbnail != null && !thumbnail.isEmpty()) {
-            String fileName = fileStorageService.storeFile(thumbnail, true);
-            course.setThumbnailUrl("/uploads/public/" + fileName);
+            String fileName = fileStorageService.storeFile(thumbnail, true).getFileName();
+            course.setThumbnailUrl(spacesProperties.getBaseUrl() + "/" + fileName);
         }
 
         // Description
@@ -292,19 +306,51 @@ public class CourseService {
      * Định nghĩa Course Response tùy quyền
      */
     private CourseResponse mapCourseToResponse(Course course, boolean full) {
+        CourseResponse response;
         if (full) {
             log.debug("Returning full course information for course: {}", course.getId());
-            return courseMapper.toCourseResponse(course);
+            response = courseMapper.toCourseResponse(course);
         } else {
             log.debug("Returning basic course information for course: {}", course.getId());
-            // Chỉ trả về id, title, ngày tạo, giảng viên, thumbnail, các trường khác null
-            return CourseResponse.builder()
+            // Trả về thông tin cơ bản mà student cần để quyết định đăng ký khóa học
+            response = CourseResponse.builder()
                     .id(course.getId())
                     .title(course.getTitle())
+                    .description(course.getDescription())
                     .createdAt(course.getCreatedAt())
                     .instructor(userMapper.toUserResponse(course.getInstructor()))
                     .thumbnailUrl(course.getThumbnailUrl())
+                    .category(categoryMapper.toCategoryResponse(course.getCategory()))
+                    .totalLessons(course.getTotalLessons())
+                    .isActive(course.isActive())
+                    .startDate(course.getStartDate())
+                    .endDate(course.getEndDate())
+                    .requiresApproval(course.isRequiresApproval())
                     .build();
+        }
+        
+        // Add rating information for both full and basic responses
+        enrichWithRatingData(response, course.getId());
+        return response;
+    }
+
+    /**
+     * Enrich CourseResponse with rating data
+     */
+    private void enrichWithRatingData(CourseResponse response, String courseId) {
+        try {
+            Double avgRating = courseReviewRepository.findAverageRatingByCourseId(courseId);
+            Integer totalReviews = courseReviewRepository.countByCourseIdAndIsApprovedTrue(courseId);
+            
+            response.setAverageRating(avgRating);
+            response.setTotalReviews(totalReviews);
+            
+            log.debug("Enriched course {} with rating data - Average: {}, Total reviews: {}", 
+                     courseId, avgRating, totalReviews);
+        } catch (Exception e) {
+            log.warn("Failed to enrich course {} with rating data: {}", courseId, e.getMessage());
+            response.setAverageRating(null);
+            response.setTotalReviews(0);
         }
     }
 
@@ -501,15 +547,22 @@ public class CourseService {
                 .map(result -> {
                     String courseId = (String) result[0];
                     Long enrollmentCount = (Long) result[1];
-                    Course course = courseRepository.findById(courseId)
+                    return courseRepository.findById(courseId)
+                            .map(course -> {
+                                PopularCourseResponse response = new PopularCourseResponse();
+                                CourseResponse courseResponse = courseMapper.toCourseResponse(course);
+
+                                // Enrich with rating data
+                                enrichWithRatingData(courseResponse, course.getId());
+
+                                response.setCourse(courseResponse);
+                                response.setEnrollmentCount(enrollmentCount);
+                                response.setAverageRating(courseResponse.getAverageRating());
+                                response.setTotalReviews(courseResponse.getTotalReviews() != null ? courseResponse.getTotalReviews().longValue() : null);
+
+                                return response;
+                            })
                             .orElse(null);
-                    if (course != null) {
-                        return PopularCourseResponse.builder()
-                                .course(courseMapper.toCourseResponse(course))
-                                .enrollmentCount(enrollmentCount)
-                                .build();
-                    }
-                    return null;
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
@@ -522,17 +575,8 @@ public class CourseService {
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
     public void syncAllCoursesTotalLessons() {
-        List<Course> allCourses = courseRepository.findAll();
-        for (Course course : allCourses) {
-            long actualLessonCount = courseLessonRepository.countByCourse(course);
-            if (course.getTotalLessons() != (int) actualLessonCount) {
-                log.info("Syncing totalLessons for course {}: {} -> {}", 
-                    course.getId(), course.getTotalLessons(), actualLessonCount);
-                course.setTotalLessons((int) actualLessonCount);
-                courseRepository.save(course);
-            }
-        }
-        log.info("Completed syncing totalLessons for all courses");
+        log.info("Admin triggered sync all courses totalLessons");
+        courseLessonService.batchSyncAllCoursesTotalLessons();
     }
 
     /**
@@ -541,17 +585,49 @@ public class CourseService {
     @Transactional
     @PreAuthorize("hasRole('INSTRUCTOR') or hasRole('ADMIN')")
     public void syncCourseTotalLessons(String courseId) {
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_EXISTED));
-        
-        checkCoursePermission(course);
-        
-        long actualLessonCount = courseLessonRepository.countByCourse(course);
-        if (course.getTotalLessons() != (int) actualLessonCount) {
-            log.info("Syncing totalLessons for course {}: {} -> {}", 
-                courseId, course.getTotalLessons(), actualLessonCount);
-            course.setTotalLessons((int) actualLessonCount);
-            courseRepository.save(course);
+        log.info("User triggered sync for course: {}", courseId);
+        courseLessonService.syncSpecificCourseTotalLessons(courseId);
+    }
+
+    /**
+     * Kiểm tra xem instructor hiện tại có phải là chủ sở hữu của khóa học hay không
+     * Method này được sử dụng cho @PreAuthorize annotation
+     */
+    public boolean isInstructorOfCourse(String courseId) {
+        try {
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            User currentUser = userRepository.findByUsername(username)
+                    .orElse(null);
+            
+            if (currentUser == null) {
+                return false;
+            }
+
+            Course course = courseRepository.findById(courseId)
+                    .orElse(null);
+                    
+            if (course == null) {
+                return false;
+            }
+
+            return course.getInstructor() != null && 
+                   course.getInstructor().getUsername().equals(username);
+        } catch (Exception e) {
+            log.error("Error checking instructor permission for course {}: {}", courseId, e.getMessage());
+            return false;
         }
+    }
+
+    public Page<EnrollmentResponse> getMyCourses(Pageable pageable) {
+        // Lấy thông tin người dùng hiện tại
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        // Lấy danh sách các khóa học đã đăng ký (có phân trang)
+        Page<Enrollment> enrollments = enrollmentRepository.findByStudent(user, pageable);
+
+        // Chuyển đổi Page<Enrollment> sang Page<EnrollmentResponse>
+        return enrollments.map(enrollmentMapper::toEnrollmentResponse);
     }
 }

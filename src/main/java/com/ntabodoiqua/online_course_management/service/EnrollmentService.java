@@ -16,9 +16,11 @@ import com.ntabodoiqua.online_course_management.mapper.CourseMapper;
 import com.ntabodoiqua.online_course_management.mapper.EnrollmentMapper;
 import com.ntabodoiqua.online_course_management.repository.CategoryRepository;
 import com.ntabodoiqua.online_course_management.repository.CourseRepository;
+import com.ntabodoiqua.online_course_management.repository.CourseReviewRepository;
 import com.ntabodoiqua.online_course_management.repository.EnrollmentRepository;
 import com.ntabodoiqua.online_course_management.repository.UserRepository;
 import com.ntabodoiqua.online_course_management.service.file.FileStorageService;
+
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -44,6 +46,7 @@ public class EnrollmentService {
     UserRepository userRepository;
     EnrollmentRepository enrollmentRepository;
     EnrollmentMapper enrollmentMapper;
+    CourseReviewRepository courseReviewRepository;
 
     // Lấy người dùng hiện tại
     User getCurrentUser() {
@@ -99,7 +102,35 @@ public class EnrollmentService {
     public Page<EnrollmentResponse> getMyEnrollments(Pageable pageable) {
         User student = getCurrentUser();
         return enrollmentRepository.findByStudent(student, pageable)
-                .map(enrollmentMapper::toEnrollmentResponse);
+                .map(enrollment -> {
+                    EnrollmentResponse response = enrollmentMapper.toEnrollmentResponse(enrollment);
+                    // Enrich course response with rating data
+                    if (response.getCourse() != null) {
+                        enrichCourseWithRatingData(response.getCourse());
+                    }
+                    return response;
+                });
+    }
+
+    /**
+     * Enrich CourseResponse with rating data
+     */
+    private void enrichCourseWithRatingData(com.ntabodoiqua.online_course_management.dto.response.course.CourseResponse courseResponse) {
+        try {
+            String courseId = courseResponse.getId();
+            Double averageRating = courseReviewRepository.findAverageRatingByCourseId(courseId);
+            Integer totalReviews = courseReviewRepository.countByCourseIdAndIsApprovedTrue(courseId);
+            
+            courseResponse.setAverageRating(averageRating);
+            courseResponse.setTotalReviews(totalReviews);
+            
+            log.debug("Enriched course {} with rating data - Average: {}, Total reviews: {}", 
+                     courseId, averageRating, totalReviews);
+        } catch (Exception e) {
+            log.warn("Failed to enrich course {} with rating data: {}", courseResponse.getId(), e.getMessage());
+            courseResponse.setAverageRating(null);
+            courseResponse.setTotalReviews(0);
+        }
     }
 
     @PreAuthorize("hasRole('INSTRUCTOR') or hasRole('ADMIN')")
@@ -152,6 +183,14 @@ public class EnrollmentService {
     public Page<EnrollmentResponse> getAllEnrollmentsForAdmin(Pageable pageable) {
         return enrollmentRepository.findAll(pageable)
                 .map(enrollmentMapper::toEnrollmentResponse);
+    }
+
+    @PreAuthorize("hasRole('STUDENT')")
+    public EnrollmentResponse getMyEnrollmentForCourse(String courseId) {
+        User currentUser = getCurrentUser();
+        Enrollment enrollment = enrollmentRepository.findByStudentIdAndCourseId(currentUser.getId(), courseId)
+                .orElseThrow(() -> new AppException(ErrorCode.ENROLLMENT_NOT_EXISTED));
+        return enrollmentMapper.toEnrollmentResponse(enrollment);
     }
 
 }
